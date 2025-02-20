@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 import time
 import hashlib
 import sqlite3
@@ -12,6 +13,9 @@ from watchdog.events import FileSystemEventHandler
 from sklearn.ensemble import IsolationForest
 from flask_socketio import SocketIO
 from plyer import notification
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../web-dashboard/")))
+from app import send_realtime_web_alert  
+
 
 # Load configuration from config.json
 with open("config.json") as f:
@@ -201,13 +205,6 @@ def send_telegram_alert(message):
             print(f"[ERROR] Failed to send Telegram alert: {response.text}")
     except Exception as e:
         print(f"[ERROR] Telegram request failed: {e}")
-
-def send_realtime_web_alert(event_type, file_path):
-    """ Send a WebSocket Update to the Web UI """
-    try:
-        socketio.emit("update_logs", {"event_type": event_type, "file_path": file_path})
-    except Exception as e:
-        print(f"[ERROR] Failed to send WebSocket alert: {e}")
 
 #Logs Delete after a limit
 def rotate_logs():

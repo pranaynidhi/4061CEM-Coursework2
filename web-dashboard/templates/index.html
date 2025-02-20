@@ -1,9 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>File Integrity Monitor</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.0.1/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.js"></script>
 
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f4; }
@@ -23,18 +26,22 @@
     <label for="search"></label><input type="text" id="search" placeholder="Search logs..." onkeyup="filterLogs()">
 
     <table id="logTable">
-        <tr>
-            <th>Event Type</th>
-            <th>File Path</th>
-            <th>Timestamp</th>
-        </tr>
-        {% for log in logs %}
-        <tr class="{{ log[0].lower() }}">
-            <td>{{ log[0] }}</td>
-            <td>{{ log[1] }}</td>
-            <td>{{ log[2] }}</td>
-        </tr>
-        {% endfor %}
+        <thead>
+            <tr>
+                <th>Event Type</th>
+                <th>File Path</th>
+                <th>Timestamp</th>
+            </tr>
+        </thead>
+        <tbody id="logTableBody">
+            {% for log in logs %}
+            <tr class="{{ log.event_type.lower() }}">
+                <td>{{ log.event_type }}</td>
+                <td>{{ log.file_path }}</td>
+                <td>{{ log.timestamp }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
     </table>
 
     <div id="logChartContainer">
@@ -43,41 +50,44 @@
     </div>
 
     <script>
-        const socket = io("http://127.0.0.1:5000", {reconnection: true});
+        var socket = io("http://127.0.0.1:5000", { transports: ["websocket"], reconnection: true });
 
         socket.on("connect", function() {
-            console.log("WebSocket Connected!");
+            console.log("✅ WebSocket Connected!");
         });
 
         socket.on("disconnect", function() {
-            console.warn("WebSocket Disconnected! Reconnecting...");
+            console.warn("⚠️ WebSocket Disconnected! Reconnecting...");
             setTimeout(() => socket.connect(), 3000);
         });
 
         socket.on("update_logs", function(data) {
-            data.file_path = undefined;
-            data.event_type = undefined;
-            console.log("🔄 Received WebSocket Data:", data);
+            console.log("🔄 Received real-time log update:", data);
+
+            // ✅ Ensure we process only a single object, not an array
+            if (Array.isArray(data)) {
+                console.error("⚠️ Received an array instead of an object!", data);
+                data = data[0]; // ✅ Fix: Extract the first object from the array
+            }
+
             if (!data || !data.event_type || !data.file_path || !data.timestamp) {
-                console.error("⚠️ Invalid data format received:", data);
+                console.error("⚠️ Invalid real-time log data:", data);
                 return;
             }
 
-            const table = document.getElementById("logTable");
-            const newRow = table.insertRow(1);
+            var tableBody = document.getElementById("logTableBody");
+            var newRow = document.createElement("tr");
             newRow.classList.add(data.event_type.toLowerCase());
 
-            const cell1 = newRow.insertCell(0);
-            const cell2 = newRow.insertCell(1);
-            const cell3 = newRow.insertCell(2);
+            newRow.innerHTML = `
+                <td>${data.event_type}</td>
+                <td>${data.file_path}</td>
+                <td>${data.timestamp}</td>
+            `;
 
-            cell1.innerHTML = data.event_type;
-            cell2.innerHTML = data.file_path;
-            cell3.innerHTML = data.timestamp;
-
-            updateChart(data.event_type);
+            console.log("✅ Adding new log row:", newRow);
+            tableBody.insertBefore(newRow, tableBody.firstChild);
         });
-
         function filterLogs() {
             const input = document.getElementById("search").value.toLowerCase();
             const rows = document.querySelectorAll("#logTable tr");
